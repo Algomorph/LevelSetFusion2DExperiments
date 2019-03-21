@@ -15,7 +15,7 @@ import utils.visualization as viz
 class Sdf2SdfVisualizer:
 
     class Parameters:
-        def __init__(self, out_path="output/sdf2sdf_optimizer/", view_scaling_factor=8,
+        def __init__(self, out_path="output/sdf_2_sdf_optimizer/", view_scaling_factor=8,
                      show_live_progression=False,
                      save_live_progression=False,
                      save_initial_fields=False,

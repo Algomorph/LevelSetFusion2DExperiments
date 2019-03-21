@@ -55,10 +55,10 @@ class Sdf2SdfOptimizer2d:
 
     def optimize(self,
                  data_to_use,
-                 eta=.01,
                  voxel_size=0.004,
                  narrow_band_width_voxels=20.,
                  iteration=60,
+                 eta=.01
                  ):
         """
         Optimization algorithm
