@@ -12,7 +12,6 @@ import experiment.build_sdf_2_sdf_optimizer_helper as build_opt
 import level_set_fusion_optimization as sdf2sdfo_cpp
 
 
-
 class MyTestCase(TestCase):
 
     def test_sdf_2_sdf_optimizer01(self):
@@ -27,7 +26,7 @@ class MyTestCase(TestCase):
         camera = DepthCamera(intrinsics=DepthCamera.Intrinsics(resolution=(480, 640),
                                                                intrinsic_matrix=intrinsic_matrix))
         field_size = 32
-        offset = np.array([-16, -16, 93.4375])
+        offset = np.array([[-16], [-16], [93.4375]])
 
         data_to_use = ImageBasedSingleFrameDataset(
             canonical_frame_path,  # dataset from original sdf2sdf paper, reference frame
@@ -63,13 +62,13 @@ class MyTestCase(TestCase):
         canonical_frame_path = utils.path.get_test_data_path("test_data/depth_000000.exr")
         live_frame_path = utils.path.get_test_data_path("test_data/depth_000003.exr")
 
-        canonical_depth_image = cv2.imread(canonical_frame_path, -1)
+        canonical_depth_image = cv2.imread(canonical_frame_path, cv2.IMREAD_UNCHANGED)
         canonical_depth_image = cv2.cvtColor(canonical_depth_image, cv2.COLOR_BGR2GRAY)
-        canonical_depth_image = canonical_depth_image.astype(int)  # cm for c++ code
+        canonical_depth_image = canonical_depth_image.astype(np.uint16)  # cm for c++ code
 
-        live_depth_image = cv2.imread(live_frame_path, -1)
+        live_depth_image = cv2.imread(live_frame_path, cv2.IMREAD_UNCHANGED)
         live_depth_image = cv2.cvtColor(live_depth_image, cv2.COLOR_BGR2GRAY)
-        live_depth_image = live_depth_image.astype(int)  # cm for c++ code
+        live_depth_image = live_depth_image.astype(np.uint16)  # cm for c++ code
 
         image_pixel_row = 240
 
@@ -79,7 +78,7 @@ class MyTestCase(TestCase):
         camera = DepthCamera(intrinsics=DepthCamera.Intrinsics(resolution=(480, 640),
                                                                intrinsic_matrix=intrinsic_matrix))
         field_size = 32
-        offset = np.array([-16, -16, 93])
+        offset = np.array([[-16], [-16], [93]], dtype=np.int32)
 
         data_to_use = ImageBasedSingleFrameDataset(
             canonical_frame_path,  # dataset from original sdf2sdf paper, reference frame
@@ -87,7 +86,7 @@ class MyTestCase(TestCase):
             image_pixel_row, field_size, offset, camera
         ) # for python code
 
-        narrow_band_width_voxels = 2.
+        narrow_band_width_voxels = 2
 
         shared_parameters = build_opt.Sdf2SdfOptimizer2dSharedParameters()
         shared_parameters.rate = 0.5
@@ -99,6 +98,18 @@ class MyTestCase(TestCase):
         visualization_parameters_py = sdf2sdfv.Sdf2SdfVisualizer.Parameters()
         visualization_parameters_py.out_path = "out"
 
+        # print(offset.reshape((3, 1)))
+
+        tsdf_generation_parameters = sdf2sdfo_cpp.Sdf2SdfOptimizer2d.TSDFGenerationParameters(
+            depth_unit_ratio=0.001,
+            camera_intrinsic_matrix=camera.intrinsics.intrinsic_matrix,
+            camera_pose=np.eye(4, dtype=np.float32),
+            array_offset=offset,
+            field_size=field_size,
+            voxel_size=0.04,
+            narrow_band_width_voxels=narrow_band_width_voxels
+        )
+
         optimizer_cpp = build_opt.make_sdf_2_sdf_optimizer2d(
             implementation_language=build_opt.ImplementationLanguage.CPP,
             shared_parameters=shared_parameters,
@@ -109,13 +120,7 @@ class MyTestCase(TestCase):
         twist_cpp = optimizer_cpp.optimize(image_y_coordinate=image_pixel_row,
                                            canonical_depth_image=canonical_depth_image,
                                            live_depth_image=live_depth_image,
-                                           depth_unit_ratio=0.01,
-                                           camera_intrinsic_matrix=camera.intrinsics,
-                                           camera_pose=camera.extrinsics,
-                                           array_offset=offset,
-                                           field_size=offset,
-                                           voxel_size=0.04,
-                                           narrow_band_width_voxels=narrow_band_width_voxels,
+                                           tsdf_generation_parameters=tsdf_generation_parameters,
                                            eta=0.01)
 
         optimizer_py = build_opt.make_sdf_2_sdf_optimizer2d(
