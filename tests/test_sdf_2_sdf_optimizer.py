@@ -26,7 +26,8 @@ class MyTestCase(TestCase):
         camera = DepthCamera(intrinsics=DepthCamera.Intrinsics(resolution=(480, 640),
                                                                intrinsic_matrix=intrinsic_matrix))
         field_size = 32
-        offset = np.array([[-16], [-16], [93.4375]])
+        offset = np.array([[-16], [-16], [93]])
+        # offset = np.array([[-16], [-16], [93.4375]])
 
         data_to_use = ImageBasedSingleFrameDataset(
             canonical_frame_path,  # dataset from original sdf2sdf paper, reference frame
@@ -93,8 +94,8 @@ class MyTestCase(TestCase):
         shared_parameters.maximum_iteration_count = 40
         # for verbose output from py version:
         # verbosity_parameters_py = build_opt.make_common_sdf_2_sdf_optimizer2d_py_verbosity_parameters()
-        verbosity_parameters_py = sdf2sdfo_py.Sdf2SdfOptimizer2d.VerbosityParameters()
-        verbosity_parameters_cpp = sdf2sdfo_cpp.Sdf2SdfOptimizer2d.VerbosityParameters()
+        verbosity_parameters_py = sdf2sdfo_py.Sdf2SdfOptimizer2d.VerbosityParameters(True, True)
+        verbosity_parameters_cpp = sdf2sdfo_cpp.Sdf2SdfOptimizer2d.VerbosityParameters(True, True)
         visualization_parameters_py = sdf2sdfv.Sdf2SdfVisualizer.Parameters()
         visualization_parameters_py.out_path = "out"
 
@@ -106,7 +107,7 @@ class MyTestCase(TestCase):
             camera_pose=np.eye(4, dtype=np.float32),
             array_offset=offset,
             field_size=field_size,
-            voxel_size=0.04,
+            voxel_size=0.004,
             narrow_band_width_voxels=narrow_band_width_voxels
         )
 
