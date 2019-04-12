@@ -32,6 +32,7 @@ class Sdf2SdfOptimizer2d:
             self.print_per_iteration_info = any(self.per_iteration_flags)
 
     def __init__(self,
+                 rate=0.5,
                  verbosity_parameters=None,
                  visualization_parameters=None
                  ):
@@ -41,6 +42,7 @@ class Sdf2SdfOptimizer2d:
         :param visualization_parameters:
         """
 
+        self.rate = rate
         if verbosity_parameters:
             self.verbosity_parameters = verbosity_parameters
         else:
@@ -85,14 +87,10 @@ class Sdf2SdfOptimizer2d:
             matrix_a = np.zeros((3, 3))
             vector_b = np.zeros((3, 1))
             canonical_weight = (canonical_field > -eta).astype(np.int)
+            twist3d = np.array([twist[0], [0.], twist[1], [0.], twist[2], [0.]], dtype=np.float32)
             live_field = data_to_use.generate_2d_live_field(narrow_band_width_voxels=narrow_band_width_voxels,
                                                             method=tsdf_gen.GenerationMethod.BASIC,
-                                                            twist=np.array([twist[0],
-                                                                           [0.],
-                                                                           twist[1],
-                                                                           [0.],
-                                                                           twist[2],
-                                                                           [0.]], dtype=np.float32))
+                                                            twist=twist3d)
             live_weight = (live_field > -eta).astype(np.int)
             live_gradient = calculate_gradient_wrt_twist(live_field, twist, array_offset=offset, voxel_size=voxel_size)
 
@@ -115,7 +113,7 @@ class Sdf2SdfOptimizer2d:
                 continue
 
             twist_star = np.dot(np.linalg.inv(matrix_a), vector_b)
-            twist += .5 * np.subtract(twist_star, twist)
+            twist += self.rate * np.subtract(twist_star, twist)
 
             if self.verbosity_parameters.print_max_warp_update:
                 print("optimal twist: %f, %f, %f, twist: %f, %f, %f"

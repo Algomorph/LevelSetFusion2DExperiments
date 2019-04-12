@@ -67,6 +67,7 @@ def make_python_optimizer(shared_parameters=Sdf2SdfOptimizer2dSharedParameters()
                           verbosity_parameters=make_common_sdf_2_sdf_optimizer2d_py_verbosity_parameters(),
                           visualization_parameters=make_common_sdf_2_sdf_optimizer2d_visualization_parameters()):
     optimizer = sdf2sdfo_py.Sdf2SdfOptimizer2d(
+        rate=shared_parameters.rate,
         verbosity_parameters=verbosity_parameters,
         visualization_parameters=visualization_parameters
     )

@@ -26,8 +26,7 @@ class MyTestCase(TestCase):
         camera = DepthCamera(intrinsics=DepthCamera.Intrinsics(resolution=(480, 640),
                                                                intrinsic_matrix=intrinsic_matrix))
         field_size = 32
-        offset = np.array([[-16], [-16], [93]])
-        # offset = np.array([[-16], [-16], [93.4375]])
+        offset = np.array([[-16], [-16], [93.4375]])
 
         data_to_use = ImageBasedSingleFrameDataset(
             canonical_frame_path,  # dataset from original sdf2sdf paper, reference frame
@@ -62,17 +61,7 @@ class MyTestCase(TestCase):
     def test_operation_same_cpp_to_py(self):
         canonical_frame_path = utils.path.get_test_data_path("test_data/depth_000000.exr")
         live_frame_path = utils.path.get_test_data_path("test_data/depth_000003.exr")
-
-        canonical_depth_image = cv2.imread(canonical_frame_path, cv2.IMREAD_UNCHANGED)
-        canonical_depth_image = cv2.cvtColor(canonical_depth_image, cv2.COLOR_BGR2GRAY)
-        canonical_depth_image = canonical_depth_image.astype(np.uint16)  # cm for c++ code
-
-        live_depth_image = cv2.imread(live_frame_path, cv2.IMREAD_UNCHANGED)
-        live_depth_image = cv2.cvtColor(live_depth_image, cv2.COLOR_BGR2GRAY)
-        live_depth_image = live_depth_image.astype(np.uint16)  # cm for c++ code
-
         image_pixel_row = 240
-
         intrinsic_matrix = np.array([[570.3999633789062, 0, 320],  # FX = 570.3999633789062 CX = 320.0
                                      [0, 570.3999633789062, 240],  # FY = 570.3999633789062 CY = 240.0
                                      [0, 0, 1]], dtype=np.float32)
@@ -80,36 +69,41 @@ class MyTestCase(TestCase):
                                                                intrinsic_matrix=intrinsic_matrix))
         field_size = 32
         offset = np.array([[-16], [-16], [93]], dtype=np.int32)
-
-        data_to_use = ImageBasedSingleFrameDataset(
-            canonical_frame_path,  # dataset from original sdf2sdf paper, reference frame
-            live_frame_path,  # dataset from original sdf2sdf paper, current frame
-            image_pixel_row, field_size, offset, camera
-        ) # for python code
-
+        voxel_size = 0.004
         narrow_band_width_voxels = 2
+        eta = 0.01  # thickness, used to calculate sdf weight.
 
         shared_parameters = build_opt.Sdf2SdfOptimizer2dSharedParameters()
         shared_parameters.rate = 0.5
-        shared_parameters.maximum_iteration_count = 40
-        # for verbose output from py version:
-        # verbosity_parameters_py = build_opt.make_common_sdf_2_sdf_optimizer2d_py_verbosity_parameters()
+        shared_parameters.maximum_iteration_count = 8
+
+        # For verbose output from py version:
         verbosity_parameters_py = sdf2sdfo_py.Sdf2SdfOptimizer2d.VerbosityParameters(True, True)
         verbosity_parameters_cpp = sdf2sdfo_cpp.Sdf2SdfOptimizer2d.VerbosityParameters(True, True)
         visualization_parameters_py = sdf2sdfv.Sdf2SdfVisualizer.Parameters()
         visualization_parameters_py.out_path = "out"
 
-        # print(offset.reshape((3, 1)))
-
+        # For c++ TSDF generator
         tsdf_generation_parameters = sdf2sdfo_cpp.Sdf2SdfOptimizer2d.TSDFGenerationParameters(
-            depth_unit_ratio=0.001,
-            camera_intrinsic_matrix=camera.intrinsics.intrinsic_matrix,
+            depth_unit_ratio=0.001,  # mm to meter
+            camera_intrinsic_matrix=intrinsic_matrix,
             camera_pose=np.eye(4, dtype=np.float32),
             array_offset=offset,
             field_size=field_size,
-            voxel_size=0.004,
+            voxel_size=voxel_size,
             narrow_band_width_voxels=narrow_band_width_voxels
         )
+
+        # Read image for c++ optimizer, identical to python, which is done inside ImageBasedSingleFrameDataset class.
+        canonical_depth_image = cv2.imread(canonical_frame_path, cv2.IMREAD_UNCHANGED)
+        canonical_depth_image = cv2.cvtColor(canonical_depth_image, cv2.COLOR_BGR2GRAY)
+        canonical_depth_image = canonical_depth_image.astype(np.uint16)  # mm
+        canonical_depth_image[canonical_depth_image == 0] = np.iinfo(np.uint16).max
+
+        live_depth_image = cv2.imread(live_frame_path, cv2.IMREAD_UNCHANGED)
+        live_depth_image = cv2.cvtColor(live_depth_image, cv2.COLOR_BGR2GRAY)
+        live_depth_image = live_depth_image.astype(np.uint16)  # mm
+        live_depth_image[live_depth_image == 0] = np.iinfo(np.uint16).max
 
         optimizer_cpp = build_opt.make_sdf_2_sdf_optimizer2d(
             implementation_language=build_opt.ImplementationLanguage.CPP,
@@ -122,7 +116,14 @@ class MyTestCase(TestCase):
                                            canonical_depth_image=canonical_depth_image,
                                            live_depth_image=live_depth_image,
                                            tsdf_generation_parameters=tsdf_generation_parameters,
-                                           eta=0.01)
+                                           eta=eta)
+
+        # For python optimizer
+        data_to_use = ImageBasedSingleFrameDataset( # for python
+            canonical_frame_path,  # dataset from original sdf2sdf paper, reference frame
+            live_frame_path,  # dataset from original sdf2sdf paper, current frame
+            image_pixel_row, field_size, offset, camera
+        )
 
         optimizer_py = build_opt.make_sdf_2_sdf_optimizer2d(
             implementation_language=build_opt.ImplementationLanguage.PYTHON,
@@ -132,10 +133,12 @@ class MyTestCase(TestCase):
             visualization_parameters_py=visualization_parameters_py)
 
         twist_py = optimizer_py.optimize(data_to_use,
+                                         voxel_size=voxel_size,
                                          narrow_band_width_voxels=narrow_band_width_voxels,
-                                         iteration=shared_parameters.maximum_iteration_count)
+                                         iteration=shared_parameters.maximum_iteration_count,
+                                         eta=eta)
 
-        self.assertTrue(np.allclose(twist_cpp, twist_py, atol=10e-6))
+        self.assertTrue(np.allclose(twist_cpp, twist_py, atol=1e-5))
 
 
 

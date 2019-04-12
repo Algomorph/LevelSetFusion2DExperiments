@@ -331,5 +331,5 @@ class MyTestCase(TestCase):
                                                 0.004,  # voxel side length
                                                 narrow_band_width_voxels,
                                                 -999)
-        self.assertTrue(np.allclose(field2, data.out_sdf_field01, atol=1e-6))
+        self.assertTrue(np.allclose(field, field2, atol=1e-6))
         # print(np.array2string(field, precision=8, separator=', ', formatter={'float': lambda x: "%.8f" % x + 'f'}))
