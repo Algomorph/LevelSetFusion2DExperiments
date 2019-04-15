@@ -51,9 +51,9 @@ class MyTestCase(TestCase):
                 save_live_progression=False
             )
         )
-        expected_twist = np.array([[-0.079572],
-                                   [0.006052],
-                                   [0.159114]])
+        expected_twist = np.array([[-0.08019894],
+                                   [0.00629552],
+                                   [0.16065715]])
         twist = optimizer.optimize(data_to_use, narrow_band_width_voxels=narrow_band_width_voxels, iteration=iteration)
 
         self.assertTrue(np.allclose(expected_twist, twist, atol=10e-6))
